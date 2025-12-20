@@ -1,4 +1,5 @@
 :root {
+  -webkit-text-size-adjust: 100%;
   --bg-color: #0a0a0f;
   --bg-gradient: linear-gradient(135deg, #0a0a0f 0%, #1a0a1f 100%);
   --card-bg: rgba(26, 26, 35, 0.6);
@@ -113,6 +114,8 @@ body::before {
 /* Base Styles */
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
 }
 
 ::-webkit-scrollbar {
@@ -135,10 +138,13 @@ body::before {
 /* Auth Page */
 .auth-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  padding-top: calc(2rem + env(safe-area-inset-top));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
   position: relative;
   overflow: hidden;
 }
@@ -146,6 +152,7 @@ body::before {
 .auth-box {
   background: var(--card-bg);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   padding: 3rem;
@@ -303,8 +310,12 @@ header {
   align-items: center;
   margin-bottom: 2rem;
   padding: 1.5rem 2rem;
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-left: calc(2rem + env(safe-area-inset-left));
+  padding-right: calc(2rem + env(safe-area-inset-right));
   background: var(--card-bg);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   gap: 2rem;
@@ -451,6 +462,7 @@ h1:hover {
   height: 100%;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   z-index: 999;
   opacity: 0;
   pointer-events: none;
@@ -471,6 +483,7 @@ h1:hover {
   height: 100%;
   background: var(--card-bg);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--glass-border);
   box-shadow: var(--shadow-lg);
   z-index: 1000;
@@ -1126,6 +1139,7 @@ h1:hover {
 .logout-modal-content {
   background: rgba(26, 26, 35, 0.85);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   padding: 3rem;
@@ -1373,12 +1387,14 @@ h1:hover {
   z-index: 1000;
   padding: 2rem;
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   animation: fadeIn 0.3s ease-out;
 }
 
 .modal-content {
   background: var(--card-bg);
   backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   max-width: 1000px;
@@ -1396,6 +1412,7 @@ h1:hover {
   right: 1.5rem;
   background: var(--glass);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
   color: white;
   width: 45px;
@@ -3565,15 +3582,37 @@ section h2 {
   display: flex;
   align-items: center;
   justify-content: center;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   z-index: 10;
   line-height: 1;
   padding: 0;
 }
 
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  -webkit-transition: transform 0.3s ease;
+  transition: transform 0.3s ease;
+}
+
+.logo-container:hover {
+  -webkit-transform: scale(1.02);
+  transform: scale(1.02);
+}
+
+.logout-btn.login-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
 .modal-close:hover {
   background: var(--accent);
   border-color: var(--accent);
+  -webkit-transform: rotate(90deg);
   transform: rotate(90deg);
   box-shadow: 0 0 15px var(--accent-glow);
 }
