@@ -427,12 +427,23 @@ const saveCachedData = async (key, data) => {
 };
 
 // --- TMDb PROXY (Italian Support) ---
-const TMDB_API_KEY = process.env.TMDB_API_KEY; // User needs to add this
+// Note: In production (e.g. Vercel/Render), ensure TMDB_API_KEY is set in environment variables
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+if (!TMDB_API_KEY) {
+    console.warn("WARNING: TMDB_API_KEY not found in environment. Italian search will be disabled.");
+}
 
 app.get('/api/tmdb/search', async (req, res) => {
     const { q } = req.query;
-    if (!q || !TMDB_API_KEY) return res.json({ Search: [], Response: "False" });
+    console.log(`[TMDb Request] Query: "${q}"`);
+    if (!q) return res.json({ Search: [], Response: "False" });
+
+    if (!TMDB_API_KEY) {
+        console.error("[TMDb Error] TMDB_API_KEY is missing. Falling back to OMDb.");
+        return res.json({ Search: [], Response: "False", Error: "API Key missing" });
+    }
 
     try {
         // 1. Search for movie in Italian
@@ -441,8 +452,11 @@ app.get('/api/tmdb/search', async (req, res) => {
         const searchData = await searchResp.json();
 
         if (!searchData.results || searchData.results.length === 0) {
+            console.log(`[TMDb Search] No results found for "${q}"`);
             return res.json({ Search: [], Response: "False" });
         }
+
+        console.log(`[TMDb Search] Found ${searchData.results.length} results. Fetching details...`);
 
         // 2. For top results, fetch corresponding IMDb ID (parallel requests)
         // Taking top 5 to avoid rate limits and slow response
@@ -475,8 +489,10 @@ app.get('/api/tmdb/search', async (req, res) => {
         const validResults = mappedResults.filter(r => r !== null);
 
         if (validResults.length > 0) {
+            console.log(`[TMDb Proxy] Successfully mapped ${validResults.length} movies with IMDb IDs.`);
             res.json({ Search: validResults, Response: "True" });
         } else {
+            console.log(`[TMDb Proxy] Found movies but none had an IMDb ID.`);
             res.json({ Search: [], Response: "False" });
         }
 
