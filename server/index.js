@@ -529,7 +529,36 @@ app.get('/api/omdb/search', async (req, res) => {
 app.get('/api/omdb/details/:id', async (req, res) => {
     const { id } = req.params;
     const cacheKey = `details:${id}`;
+
     try {
+        // 1. Check if it's a TMDb ID (prefixed by our Trending logic)
+        if (id && id.startsWith('tmdb-')) {
+            const tmdbId = id.replace('tmdb-', '');
+            const tmdbResp = await fetch(`${TMDB_BASE_URL}/movie/${tmdbId}?api_key=${TMDB_API_KEY}&language=it-IT&append_to_response=credits,external_ids`);
+            const movie = await tmdbResp.json();
+
+            if (!movie || movie.success === false) return res.status(404).json({ Response: "False", Error: "Movie not found on TMDb" });
+
+            // Format to OMDb style so frontend doesn't break
+            const omdbFormatted = {
+                Title: movie.title,
+                Year: movie.release_date ? movie.release_date.split('-')[0] : 'N/A',
+                Released: movie.release_date,
+                Runtime: `${movie.runtime} min`,
+                Genre: movie.genres?.map(g => g.name).join(', ') || 'N/A',
+                Director: movie.credits?.crew?.find(c => c.job === 'Director')?.name || 'N/A',
+                Actors: movie.credits?.cast?.slice(0, 4).map(a => a.name).join(', ') || 'N/A',
+                Plot: movie.overview,
+                Poster: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : 'N/A',
+                imdbRating: movie.vote_average?.toString() || 'N/A',
+                imdbID: movie.external_ids?.imdb_id || id,
+                Type: 'movie',
+                Response: 'True'
+            };
+            return res.json(omdbFormatted);
+        }
+
+        // 2. Regular OMDb Logic
         const cached = await getCachedData(cacheKey);
         if (cached && (Date.now() - Number(cached.cached_at) < CACHE_DURATION)) {
             return res.json(JSON.parse(cached.response_data));
@@ -538,7 +567,10 @@ app.get('/api/omdb/details/:id', async (req, res) => {
         const data = await resp.json();
         if (data.Response === "True") saveCachedData(cacheKey, data);
         res.json(data);
-    } catch (e) { res.status(500).json({ error: 'Proxy error' }); }
+    } catch (e) {
+        console.error("Details Error:", e);
+        res.status(500).json({ error: 'Proxy error' });
+    }
 });
 
 app.get('/api/omdb/trending', async (req, res) => {
@@ -547,88 +579,33 @@ app.get('/api/omdb/trending', async (req, res) => {
     }
 
     try {
-        console.log("[Trending Request] Fetching daily trending from TMDb...");
+        console.log("[Trending] Fetching fast Trending list from TMDb...");
         const trendingUrl = `${TMDB_BASE_URL}/trending/movie/day?api_key=${TMDB_API_KEY}&language=it-IT`;
         const resp = await fetch(trendingUrl);
         const data = await resp.json();
 
         if (!data.results || data.results.length === 0) {
-            console.log("[Trending] No results from TMDb Trending API.");
             return res.json([]);
         }
 
-        console.log(`[Trending] TMDb returned ${data.results.length} movies.`);
-
-        // 2. Randomize/Shuffle to ensure it "changes every time" as requested
+        // Shuffle for variety
         const shuffled = data.results.sort(() => 0.5 - Math.random());
+        const subset = shuffled.slice(0, 15);
 
-        // 3. Take a subset (e.g., 10-12 movies) to keep it snappy and diverse
-        const subset = shuffled.slice(0, 12);
-
-        // 4. Map to IMDb IDs (Parallel)
-        const mappedResults = await Promise.all(subset.map(async (movie) => {
-            try {
-                // Check cache first for external IDs to speed up
-                const cacheKey = `tmdb_id_map:${movie.id}`;
-                let imdbId;
-
-                try {
-                    const cached = await getCachedData(cacheKey);
-                    if (cached) {
-                        imdbId = JSON.parse(cached.response_data).imdb_id;
-                    }
-                } catch (dbErr) {
-                    console.warn(`[Trending] Database cache fetch failed for id ${movie.id}:`, dbErr.message);
-                }
-
-                if (!imdbId) {
-                    const extResp = await fetch(`${TMDB_BASE_URL}/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
-                    const extData = await extResp.json();
-                    imdbId = extData.imdb_id;
-
-                    if (imdbId) {
-                        try {
-                            saveCachedData(cacheKey, { imdb_id: imdbId });
-                        } catch (dbErr) {
-                            console.warn(`[Trending] Database cache save failed for id ${movie.id}`);
-                        }
-                    }
-                }
-
-                if (imdbId) {
-                    return {
-                        Title: movie.title,
-                        Year: movie.release_date ? movie.release_date.split('-')[0] : 'N/A',
-                        imdbID: imdbId,
-                        Type: 'movie',
-                        Poster: movie.poster_path
-                            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                            : 'N/A'
-                    };
-                }
-                return null;
-            } catch (e) {
-                return null;
-            }
+        // Map directly using TMDb data and prefixed IDs
+        // This avoids the slow 15-fetch chain that times out on Vercel
+        const results = subset.map(movie => ({
+            Title: movie.title,
+            Year: movie.release_date ? movie.release_date.split('-')[0] : 'N/A',
+            imdbID: `tmdb-${movie.id}`,
+            Type: 'movie',
+            Poster: movie.poster_path
+                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                : 'N/A'
         }));
 
-        const finalResults = mappedResults.filter(r => r !== null);
-        console.log(`[Trending] Successfully prepared ${finalResults.length} trending movies.`);
-
-        // Final sanity check: if somehow we have 0 mapped items, try to return something at least
-        if (finalResults.length === 0 && data.results.length > 0) {
-            console.warn("[Trending] All mappings failed. Returning basic titles without IMDb IDs as fallback...");
-            const fallback = subset.map(m => ({
-                Title: m.title,
-                Year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
-                imdbID: `tmdb-${m.id}`,
-                Type: 'movie',
-                Poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : 'N/A'
-            }));
-            return res.json(fallback);
-        }
-
-        res.json(finalResults);
+        console.log(`[Trending] Returning ${results.length} movies instantly.`);
+        res.json(results);
 
     } catch (e) {
         console.error("Trending Error:", e);
