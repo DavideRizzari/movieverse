@@ -183,6 +183,7 @@ body::after {
   background: var(--card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  will-change: transform, opacity;
   border: 1px solid var(--glass-border);
   border-radius: 24px;
   padding: 3rem;
@@ -346,6 +347,7 @@ header {
   background: var(--card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  will-change: transform;
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   gap: 2rem;
@@ -2174,6 +2176,30 @@ section h2 {
   section h2 {
     font-size: 2rem;
   }
+
+  /* Reduce blur on mobile for better performance */
+  .auth-box,
+  header,
+  .main-nav,
+  .footer-container,
+  .modal-content,
+  .password-modal-content,
+  .action-modal-content {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+  }
+
+  /* Disable non-essential animations on mobile */
+  h1,
+  .modal-info h2 {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .animated-background {
+    opacity: 0.5;
+    /* Reduce visual noise */
+  }
 }
 
 /* Mobile portrait */
@@ -2474,17 +2500,15 @@ section h2 {
 
 @keyframes floatLine {
   0% {
-    transform: translateY(-5%) scaleY(1);
-    d: path("M0,50 Q25,30 50,50 T100,50");
+    transform: translateY(-5px) rotate(0deg);
   }
 
   50% {
-    transform: translateY(0%) scaleY(1.1);
+    transform: translateY(5px) rotate(0.5deg);
   }
 
   100% {
-    transform: translateY(5%) scaleY(1);
-    d: path("M0,50 Q25,70 50,50 T100,50");
+    transform: translateY(-5px) rotate(0deg);
   }
 }
 
