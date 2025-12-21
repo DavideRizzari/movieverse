@@ -542,34 +542,68 @@ app.get('/api/omdb/details/:id', async (req, res) => {
 });
 
 app.get('/api/omdb/trending', async (req, res) => {
-    // Simplified logic for brevity in this rewrite, keeping main parts
-    // (In reality, paste the full logic from previous file but using pool.query calls)
-    // For safety, let's just return a placeholder or basics for now during migration if user didn't ask for logic change.
-    // ... Actually, I'll paste the logic back to be safe.
-
-    let keywords = ['love', 'war', 'space', 'future', 'action', 'hero', 'comedy', 'dark', 'light'];
-    // ... (Personalization logic omitted for brevity in artifact, assumes generic if complicated)
-    // Actually, I should keep it.
+    if (!TMDB_API_KEY) {
+        return res.json([]);
+    }
 
     try {
-        // Just fetch random keywords search as before
-        const performSearch = async (s) => {
-            const key = `search:${s}:`;
-            const cached = await getCachedData(key);
-            if (cached) return JSON.parse(cached.response_data);
-            const r = await fetch(`${OMDB_BASE_URL}&s=${s}`);
-            const d = await r.json();
-            if (d.Response === "True") saveCachedData(key, d);
-            return d;
-        };
+        // 1. Fetch Trending from TMDb (Day window for more frequent changes)
+        // We fetch page 1 to get the most relevant ones.
+        const trendingUrl = `${TMDB_BASE_URL}/trending/movie/day?api_key=${TMDB_API_KEY}&language=it-IT`;
+        const resp = await fetch(trendingUrl);
+        const data = await resp.json();
 
-        // Simulating the result for now to ensure migration success without huge code block
-        // In a real scenario I'd copy the 100 lines of trending logic.
-        // Let's do a basic fetch
-        const results = await performSearch('movie');
-        if (results && results.Search) return res.json(results.Search);
-        res.json([]);
-    } catch (e) { res.status(500).json({ error: 'Error' }); }
+        if (!data.results || data.results.length === 0) {
+            return res.json([]);
+        }
+
+        // 2. Randomize/Shuffle to ensure it "changes every time" as requested
+        const shuffled = data.results.sort(() => 0.5 - Math.random());
+
+        // 3. Take a subset (e.g., 10-12 movies) to keep it snappy and diverse
+        const subset = shuffled.slice(0, 12);
+
+        // 4. Map to IMDb IDs (Parallel)
+        const mappedResults = await Promise.all(subset.map(async (movie) => {
+            try {
+                // Check cache first for external IDs to speed up
+                const cacheKey = `tmdb_id_map:${movie.id}`;
+                const cached = await getCachedData(cacheKey);
+
+                let imdbId;
+                if (cached) {
+                    imdbId = JSON.parse(cached.response_data).imdb_id;
+                } else {
+                    const extResp = await fetch(`${TMDB_BASE_URL}/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
+                    const extData = await extResp.json();
+                    imdbId = extData.imdb_id;
+                    if (imdbId) saveCachedData(cacheKey, { imdb_id: imdbId });
+                }
+
+                if (imdbId) {
+                    return {
+                        Title: movie.title,
+                        Year: movie.release_date ? movie.release_date.split('-')[0] : 'N/A',
+                        imdbID: imdbId,
+                        Type: 'movie',
+                        Poster: movie.poster_path
+                            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                            : 'N/A'
+                    };
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }));
+
+        const finalResults = mappedResults.filter(r => r !== null);
+        res.json(finalResults);
+
+    } catch (e) {
+        console.error("Trending Error:", e);
+        res.status(500).json({ error: 'Trending Proxy Error' });
+    }
 });
 
 // Streaming (using helper from streaming.js which likely just fetches external API? actually streaming.js was local URL... wait)
