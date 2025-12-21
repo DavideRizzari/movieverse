@@ -26,14 +26,18 @@ export const useMovies = (user) => {
         setLoading(true);
         try {
             const data = await getTrendingMovies(user?.preferred_genres);
-            if (data && data.length > 0) {
-                setTrending(data);
-                localStorage.setItem('trendingMovies', JSON.stringify(data));
+            // Always set trending to something (even empty) to break potential retry loops in App.jsx
+            const finalData = (data && Array.isArray(data)) ? data : [];
+            setTrending(finalData);
+
+            if (finalData.length > 0) {
+                localStorage.setItem('trendingMovies', JSON.stringify(finalData));
                 localStorage.setItem('trendingMoviesTime', now);
                 localStorage.setItem('trendingMoviesUser', currentUserPrefs);
             }
         } catch (e) {
             console.error("Failed to load trending", e);
+            setTrending([]); // Break loop on error too
         } finally {
             setLoading(false);
         }
