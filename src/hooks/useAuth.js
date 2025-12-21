@@ -116,26 +116,18 @@ export const useAuth = () => {
     };
 
     const handleUpdateProfile = async (profileData) => {
-        try {
-            const result = await updateProfile(token, profileData);
-            if (result.user) {
-                const updatedUser = { ...user, ...result.user };
-                setUser(updatedUser);
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                // Clear trending cache to force reload with new prefs
-                localStorage.removeItem('trendingMoviesUser');
-            }
-        } catch (error) {
-            throw error; // Let component handle or rethrow
+        const result = await updateProfile(token, profileData);
+        if (result.user) {
+            const updatedUser = { ...user, ...result.user };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            // Clear trending cache to force reload with new prefs
+            localStorage.removeItem('trendingMoviesUser');
         }
     };
 
     const handleChangePassword = async (currentPassword, newPassword) => {
-        try {
-            await changePassword(token, currentPassword, newPassword);
-        } catch (error) {
-            throw error;
-        }
+        await changePassword(token, currentPassword, newPassword);
     };
 
     return {

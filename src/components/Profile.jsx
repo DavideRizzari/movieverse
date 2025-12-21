@@ -62,12 +62,8 @@ function Profile({ user, onUpdateProfile, onChangePassword, onLogout }) {
         setMessage('');
         setError('');
 
-        try {
-            await onChangePassword(currentPassword, newPassword);
-            setMessage('Password changed successfully!');
-        } catch (err) {
-            throw err;
-        }
+        await onChangePassword(currentPassword, newPassword);
+        setMessage('Password changed successfully!');
     };
 
     return (

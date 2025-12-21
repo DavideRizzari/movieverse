@@ -21,13 +21,25 @@ const translateQuery = async (text) => {
 
 export const searchMovies = async (query, year = '') => {
     try {
-        // Translate query from Italian to English
+        // 1. Try TMDb (Italian optimized)
+        // If TMDB_API_KEY is not set on server, this returns empty/false quickly
+        const tmdbUrl = `${API_URL}/tmdb/search?q=${encodeURIComponent(query)}`;
+        const tmdbResponse = await fetch(tmdbUrl);
+        const tmdbData = await tmdbResponse.json();
+
+        if (tmdbData.Response === "True" && tmdbData.Search && tmdbData.Search.length > 0) {
+            return tmdbData.Search;
+        }
+
+        console.log("TMDb no results, falling back to OMDb...");
+
+        // 2. Fallback to original OMDb Search (English mainly)
+        // We can keep the translation attempt if we want, but it was unreliable. 
+        // Let's keep it as a last resort if TMDb fails (e.g. key missing).
         const translatedQuery = await translateQuery(query);
 
         let url = `${API_URL}/omdb/search?s=${encodeURIComponent(translatedQuery)}`;
-        if (year) {
-            url += `&y=${year}`;
-        }
+        if (year) url += `&y=${year}`;
 
         const token = localStorage.getItem('token');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -36,16 +48,12 @@ export const searchMovies = async (query, year = '') => {
         const data = await response.json();
 
         if (data.Response === "True" || Array.isArray(data)) {
-            // Backend might return array directly if cached, or OMDb format
             return Array.isArray(data) ? data : data.Search;
         } else {
-            // If translated search fails, try original query as fallback
+            // 3. Last chance: Original Query without translation
             if (translatedQuery !== query) {
-                console.log("Translated search failed, trying original query...");
                 let fallbackUrl = `${API_URL}/omdb/search?s=${encodeURIComponent(query)}`;
-                if (year) {
-                    fallbackUrl += `&y=${year}`;
-                }
+                if (year) fallbackUrl += `&y=${year}`;
                 const fallbackResponse = await fetch(fallbackUrl, { headers });
                 const fallbackData = await fallbackResponse.json();
                 if (fallbackData.Response === "True" || Array.isArray(fallbackData)) {

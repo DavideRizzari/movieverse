@@ -343,7 +343,7 @@ app.get('/api/directors', async (req, res) => {
             try {
                 const m = JSON.parse(row.movie_data);
                 if (m.Director && m.Director !== 'N/A') directors.add(m.Director);
-            } catch (e) { }
+            } catch (e) { /* Ignore invalid JSON */ }
         });
         res.json(Array.from(directors).sort());
     } catch (err) {
@@ -425,6 +425,66 @@ const saveCachedData = async (key, data) => {
         [key, JSON.stringify(data), timestamp]
     );
 };
+
+// --- TMDb PROXY (Italian Support) ---
+const TMDB_API_KEY = process.env.TMDB_API_KEY; // User needs to add this
+const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+app.get('/api/tmdb/search', async (req, res) => {
+    const { q } = req.query;
+    if (!q || !TMDB_API_KEY) return res.json({ Search: [], Response: "False" });
+
+    try {
+        // 1. Search for movie in Italian
+        const searchUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(q)}&language=it-IT&include_adult=false`;
+        const searchResp = await fetch(searchUrl);
+        const searchData = await searchResp.json();
+
+        if (!searchData.results || searchData.results.length === 0) {
+            return res.json({ Search: [], Response: "False" });
+        }
+
+        // 2. For top results, fetch corresponding IMDb ID (parallel requests)
+        // Taking top 5 to avoid rate limits and slow response
+        const topResults = searchData.results.slice(0, 5);
+
+        const mappedResults = await Promise.all(topResults.map(async (movie) => {
+            try {
+                const externalIdUrl = `${TMDB_BASE_URL}/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`;
+                const extResp = await fetch(externalIdUrl);
+                const extData = await extResp.json();
+
+                if (extData.imdb_id) {
+                    return {
+                        Title: movie.title, // Keep Italian title
+                        Year: movie.release_date ? movie.release_date.split('-')[0] : 'N/A',
+                        imdbID: extData.imdb_id,
+                        Type: 'movie',
+                        Poster: movie.poster_path
+                            ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+                            : 'N/A'
+                    };
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+        }));
+
+        // Filter out failures
+        const validResults = mappedResults.filter(r => r !== null);
+
+        if (validResults.length > 0) {
+            res.json({ Search: validResults, Response: "True" });
+        } else {
+            res.json({ Search: [], Response: "False" });
+        }
+
+    } catch (e) {
+        console.error("TMDb Error:", e);
+        res.status(500).json({ error: 'TMDb Proxy Error' });
+    }
+});
 
 // ... Same search/details/trending logic but using async pool helpers above ...
 
