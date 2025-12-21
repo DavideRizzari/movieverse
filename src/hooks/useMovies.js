@@ -13,23 +13,15 @@ export const useMovies = (user) => {
 
     // Trending Logic
     const loadTrending = useCallback(async (forceRefresh = false) => {
-        // Check cache
-        const cachedTrending = localStorage.getItem('trendingMovies');
-        const cachedTime = localStorage.getItem('trendingMoviesTime');
-        const cachedUser = localStorage.getItem('trendingMoviesUser');
         const now = Date.now();
         const currentUserPrefs = user && user.preferred_genres ? JSON.stringify(user.preferred_genres) : 'none';
 
+        // Cache specifically disabled for Trending as per user request for variety
+        /* 
         if (!forceRefresh && cachedTrending && cachedTime && (now - cachedTime < 1800000) && cachedUser === currentUserPrefs) {
-            try {
-                setTrending(JSON.parse(cachedTrending));
-                return;
-            } catch (e) {
-                console.error("Error parsing cached trending:", e);
-                localStorage.removeItem('trendingMovies');
-                // Continue to fetch fresh data
-            }
+            ...
         }
+        */
 
         setLoading(true);
         try {
