@@ -29,4 +29,4 @@ const Trending = ({ loading, trending, onAdd, isInCollection, onMovieClick }) =>
     );
 };
 
-export default Trending;
+export default React.memo(Trending);
