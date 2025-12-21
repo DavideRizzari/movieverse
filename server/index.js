@@ -570,16 +570,29 @@ app.get('/api/omdb/trending', async (req, res) => {
             try {
                 // Check cache first for external IDs to speed up
                 const cacheKey = `tmdb_id_map:${movie.id}`;
-                const cached = await getCachedData(cacheKey);
-
                 let imdbId;
-                if (cached) {
-                    imdbId = JSON.parse(cached.response_data).imdb_id;
-                } else {
+
+                try {
+                    const cached = await getCachedData(cacheKey);
+                    if (cached) {
+                        imdbId = JSON.parse(cached.response_data).imdb_id;
+                    }
+                } catch (dbErr) {
+                    console.warn(`[Trending] Database cache fetch failed for id ${movie.id}:`, dbErr.message);
+                }
+
+                if (!imdbId) {
                     const extResp = await fetch(`${TMDB_BASE_URL}/movie/${movie.id}/external_ids?api_key=${TMDB_API_KEY}`);
                     const extData = await extResp.json();
                     imdbId = extData.imdb_id;
-                    if (imdbId) saveCachedData(cacheKey, { imdb_id: imdbId });
+
+                    if (imdbId) {
+                        try {
+                            saveCachedData(cacheKey, { imdb_id: imdbId });
+                        } catch (dbErr) {
+                            console.warn(`[Trending] Database cache save failed for id ${movie.id}`);
+                        }
+                    }
                 }
 
                 if (imdbId) {
@@ -601,6 +614,20 @@ app.get('/api/omdb/trending', async (req, res) => {
 
         const finalResults = mappedResults.filter(r => r !== null);
         console.log(`[Trending] Successfully prepared ${finalResults.length} trending movies.`);
+
+        // Final sanity check: if somehow we have 0 mapped items, try to return something at least
+        if (finalResults.length === 0 && data.results.length > 0) {
+            console.warn("[Trending] All mappings failed. Returning basic titles without IMDb IDs as fallback...");
+            const fallback = subset.map(m => ({
+                Title: m.title,
+                Year: m.release_date ? m.release_date.split('-')[0] : 'N/A',
+                imdbID: `tmdb-${m.id}`,
+                Type: 'movie',
+                Poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : 'N/A'
+            }));
+            return res.json(fallback);
+        }
+
         res.json(finalResults);
 
     } catch (e) {
