@@ -547,15 +547,17 @@ app.get('/api/omdb/trending', async (req, res) => {
     }
 
     try {
-        // 1. Fetch Trending from TMDb (Day window for more frequent changes)
-        // We fetch page 1 to get the most relevant ones.
+        console.log("[Trending Request] Fetching daily trending from TMDb...");
         const trendingUrl = `${TMDB_BASE_URL}/trending/movie/day?api_key=${TMDB_API_KEY}&language=it-IT`;
         const resp = await fetch(trendingUrl);
         const data = await resp.json();
 
         if (!data.results || data.results.length === 0) {
+            console.log("[Trending] No results from TMDb Trending API.");
             return res.json([]);
         }
+
+        console.log(`[Trending] TMDb returned ${data.results.length} movies.`);
 
         // 2. Randomize/Shuffle to ensure it "changes every time" as requested
         const shuffled = data.results.sort(() => 0.5 - Math.random());
@@ -598,6 +600,7 @@ app.get('/api/omdb/trending', async (req, res) => {
         }));
 
         const finalResults = mappedResults.filter(r => r !== null);
+        console.log(`[Trending] Successfully prepared ${finalResults.length} trending movies.`);
         res.json(finalResults);
 
     } catch (e) {
