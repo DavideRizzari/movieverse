@@ -2185,20 +2185,38 @@ section h2 {
   .modal-content,
   .password-modal-content,
   .action-modal-content {
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
   }
 
   /* Disable non-essential animations on mobile */
   h1,
-  .modal-info h2 {
+  .modal-info h2,
+  .hero h2,
+  .auth-box h1,
+  .hero::before,
+  .curve-line {
     animation: none !important;
     transform: none !important;
   }
 
   .animated-background {
-    opacity: 0.5;
+    opacity: 0.3;
     /* Reduce visual noise */
+  }
+
+  /* Simplify body effects */
+  body::after {
+    opacity: 0.15 !important;
+    /* Significant reduction in noise filter opacity */
+  }
+
+  /* Reduce high-cost shadows */
+  .movie-card,
+  .search-bar button,
+  .auth-box,
+  header {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
   }
 }
 

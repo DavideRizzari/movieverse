@@ -84,10 +84,10 @@ function App() {
 
   // Sync route with loading data
   useEffect(() => {
-    if ((location.pathname === '/' || location.pathname === '/trending') && trending.length === 0) {
+    if ((location.pathname === '/' || location.pathname === '/trending') && trending.length === 0 && !moviesLoading) {
       loadTrending();
     }
-  }, [location.pathname, trending.length, loadTrending]);
+  }, [location.pathname, trending.length, loadTrending, moviesLoading]);
 
   // Redirect to /shared when shared collection is loaded via legacy query param
   useEffect(() => {
